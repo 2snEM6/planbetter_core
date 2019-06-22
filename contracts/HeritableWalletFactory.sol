@@ -4,28 +4,22 @@ import "./HeritableWallet.sol";
 
 contract HeritableWalletFactory {
     address public creator;
-    mapping(address => address[]) contractsByBeneficiary;
     mapping(address => address[]) contractsByOwner;
 
-    event WalletCreated(address walletAddress, address walletOwner, address walletBeneficiary);
+    event WalletCreated(address walletAddress, address walletOwner);
 
     constructor() public {
         creator = msg.sender;
-    }
-
-    function getContractsByBeneficiary() public view returns (address[] memory contracts) {
-        contracts = contractsByBeneficiary[msg.sender];
     }
 
     function getContractsByOwner() public view returns (address[] memory contracts) {
         contracts = contractsByOwner[msg.sender];
     }
 
-    function create(address payable beneficiary, uint periodInDays) public returns (address payable wallet) {
-        wallet = address(new HeritableWallet(beneficiary, msg.sender, periodInDays));
-        contractsByBeneficiary[beneficiary].push(wallet);
+    function create(uint periodInDays) public returns (address payable wallet) {
+        wallet = address(new HeritableWallet(msg.sender, periodInDays));
         contractsByOwner[msg.sender].push(wallet);
-        emit WalletCreated(wallet, msg.sender, beneficiary);
+        emit WalletCreated(wallet, msg.sender);
     }
 }
 

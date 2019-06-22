@@ -2,21 +2,38 @@ pragma solidity 0.5.0;
 
 import "./HeritableWalletFactory.sol";
 
+/**
+An improved version of HeritableWallet.sol.
+It implements beneficiary acceptance constraint
+this allows the beneficiary to have a record of the contract
+in a form of a transaction to call acceptHeritage() function
+and also possibly can solve legal requirements where both parties
+need to accept the transfer of the funds.
+*/
 contract HeritableWallet {
     HeritableWalletFactory public factory;
-    address payable public beneficiary;
+    Heir public mainHeir;
     address payable public owner;
-    mapping(address => uint8) public points;
-    mapping(address => address payable) public wallets;
     uint public lastCheckInTime;
     uint public checkInPeriod;
-    uint public totalPoints = 0;
+
+    event HeritageProposal(address heritableWalletAddress, address walletOwner, address walletProposedHeritage);
+
+    struct Heir {
+        address payable heritableWalletAddress;
+        address payable ownAddress;
+        bool accepted;
+        bool pending;
+    }
 
     /* constructor */
-    constructor(address payable walletBeneficiary, address payable walletOwner, uint periodInDays) public {
+    constructor(address payable walletOwner, uint periodInDays) public {
         factory = HeritableWalletFactory(msg.sender); // asume the creator is always the factory
-        beneficiary = walletBeneficiary; // intended beneficiary
+
+        mainHeir = Heir(address(this), address(0), false, false); // First initial intended beneficiary
+        //mainBeneficiary = walletBeneficiary;// First initial intended beneficiary
         owner = walletOwner; // who currently controls the wallet
+
         checkInPeriod = periodInDays * 1 days;
         lastCheckInTime = now;
     }
@@ -31,67 +48,53 @@ contract HeritableWallet {
     }
 
     modifier onlyHeir() {
-        if (points[msg.sender] == 0) revert();
+        if (mainHeir.ownAddress == msg.sender) revert();
         _; // function body
+    }
+
+    function isAcceptedHeritage() private view returns (bool) {
+        return mainHeir.accepted;
     }
 
     /* called by owner periodically to prove he is alive */
     function checkIn() public onlyOwner {}
+
+    function acceptHeritage() public onlyHeir {
+        mainHeir.accepted = true;
+    }
+
+    function proposeHeritage() public {
+        if (msg.sender == owner) revert(); // Cannot propose heritage to itself
+        if (mainHeir.pending) // Cannot propose when there is already a pending proposal
+        if (!mainHeir.pending && mainHeir.accepted) // Cannot propose when a heir has already been accepted
+        if (!mainHeir.pending && !mainHeir.accepted && mainHeir.ownAddress == address(0) && mainHeir.heritableWalletAddress == address(this)) {
+            mainHeir = Heir(address(this), msg.sender, false, true);
+            emit HeritageProposal(address(this), owner, msg.sender);
+        }
+    }
 
     /* called by owner to change check in period */
     function setCheckInPeriod(uint periodInDays) public onlyOwner {
         checkInPeriod = periodInDays * 1 days;
     }
 
-    /* called by owner to send funds with data to chosen destination */
-    function sendFunds(address payable destination, uint amount) public onlyOwner {
-        destination.transfer(amount);
-    }
-
-    /* called by owner to change ownership */
-    function transferOwnership(address payable newOwner) public onlyOwner {
-        owner = newOwner;
-        beneficiary = owner;
-    }
-
-    /* called by owner to add/modify an heir; inheritance shares are directly proportional to the points assigned */
-    function setHeir(address payable heir, uint8 inheritancePoints, uint periodInDays) public onlyOwner returns (address payable) {
-        if (wallets[heir] == address(0) && inheritancePoints > 0) {
-            wallets[heir] = factory.create(heir, periodInDays);
-        } else if (wallets[heir] != address(0) && inheritancePoints == 0) {
-            HeritableWallet(wallets[heir]).destroy();
-            delete wallets[heir];
-        }
-        totalPoints -= points[wallets[heir]];
-        points[wallets[heir]] = inheritancePoints;
-        totalPoints += inheritancePoints;
-        return wallets[heir];
-    }
-
-    /* called by anyone to give the beneficiary full ownership of this account when his predecessor is inactive */
-    function unlock() public {
-        if (beneficiary == owner) revert(); // already unlocked
-        HeritableWallet(owner).claimInheritance();
-        owner = beneficiary;
-        lastCheckInTime = now;
+    /* called by owner to reset the heir */
+    function resetHeir() public onlyOwner {
+        mainHeir = Heir(address(this), address(0), false, false);
     }
 
     /* called by an heir to collect his share in the inheritance */
     function claimInheritance() public onlyHeir {
-        if (beneficiary != owner) revert(); // account is locked
         if (now <= lastCheckInTime + checkInPeriod) revert(); // owner was active recently
-        uint8 heirPoints = points[msg.sender];
-        uint amount = address(this).balance * heirPoints / totalPoints; // compute amount for current heir
-        totalPoints -= heirPoints;
-        delete points[msg.sender];
+        if (!isAcceptedHeritage()) revert();
+
+        uint amount = address(this).balance;
+
         if (!msg.sender.send(amount)) { // transfer proper amount to heir or revert state if it fails
-            totalPoints += heirPoints;
-            points[msg.sender] = heirPoints;
             revert();
         }
-        if (totalPoints == 0) { // last heir, destroy empty contract
-            selfdestruct(owner);
-        }
+
+        selfdestruct(owner);
     }
 
     /* called by owner to terminate this contract */
@@ -100,6 +103,6 @@ contract HeritableWallet {
     }
 
     function getOwner() public view returns (address) { return owner; }
-    function getBeneficiary() public view returns (address) { return beneficiary; }
+    function getHeir() public view returns (address) { return mainHeir.ownAddress; }
 
 }

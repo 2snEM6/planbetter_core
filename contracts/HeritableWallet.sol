@@ -21,6 +21,7 @@ contract HeritableWallet {
     event HeritageAccepted(address heritableWalletAddress, address walletOwner, address walletHeir);
     event HeritageDeclined(address heritableWalletAddress, address walletOwner, address walletHeir);
     event WalletDestroyed(address heritableWalletAddress);
+    event CheckIn(address heritableWalletAddress, uint lastCheckInTime, uint timeRemaining);
 
     struct Heir {
         address payable heritableWalletAddress;
@@ -62,6 +63,7 @@ contract HeritableWallet {
     /* called by owner periodically to prove he is alive */
     function checkIn() public onlyOwner {
         lastCheckInTime = now;
+        emit CheckIn(address(this), lastCheckInTime, getRemainingTime());
     }
 
     function getLastCheckIn() public view returns (uint) {

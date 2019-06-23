@@ -59,14 +59,41 @@ contract HeritableWallet {
     /* called by owner periodically to prove he is alive */
     function checkIn() public onlyOwner {}
 
-    function acceptHeritage() public onlyHeir {
+    function getLastCheckIn() public view returns (uint) {
+        return lastCheckInTime;
+    }
+
+    function isLocked() public view returns (bool) {
+        return now <= lastCheckInTime + checkInPeriod;
+    }
+
+    event HeritageAccepted(address heritableWalletAddress, address walletOwner, address walletHeir);
+    event HeritageDeclined(address heritableWalletAddress, address walletOwner, address walletHeir);
+
+    function acceptHeritage() public onlyOwner {
+        if (!mainHeir.pending) revert();
         mainHeir.accepted = true;
+        mainHeir.pending = false;
+        emit HeritageAccepted(address(this), owner, mainHeir.ownAddress);
+    }
+
+    function declineHeritage() public onlyOwner {
+        if (!mainHeir.pending) revert();
+
+        address heirAddress = mainHeir.ownAddress;
+
+        mainHeir.accepted = false;
+        mainHeir.pending = false;
+        mainHeir.ownAddress = address(0);
+        mainHeir.heritableWalletAddress = address(this);
+
+        emit HeritageDeclined(address(this), owner, heirAddress);
     }
 
     function proposeHeritage() public {
         if (msg.sender == owner) revert(); // Cannot propose heritage to itself
-        if (mainHeir.pending) // Cannot propose when there is already a pending proposal
-        if (!mainHeir.pending && mainHeir.accepted) // Cannot propose when a heir has already been accepted
+        if (mainHeir.pending) revert(); // Cannot propose when there is already a pending proposal
+        if (!mainHeir.pending && mainHeir.accepted) revert(); // Cannot propose when a heir has already been accepted
         if (!mainHeir.pending && !mainHeir.accepted && mainHeir.ownAddress == address(0) && mainHeir.heritableWalletAddress == address(this)) {
             mainHeir = Heir(address(this), msg.sender, false, true);
             emit HeritageProposal(address(this), owner, msg.sender);
@@ -97,12 +124,19 @@ contract HeritableWallet {
         selfdestruct(owner);
     }
 
-    /* called by owner to terminate this contract */
+    /* called by owner to terminate this contract after sending its funds back to the owner */
     function destroy() public onlyOwner {
-        selfdestruct(owner);
+        if (address(this).balance > 0) {
+            if (!msg.sender.send(address(this).balance)) revert();
+            selfdestruct(owner);
+        } else {
+            selfdestruct(owner);
+        }
     }
 
     function getOwner() public view returns (address) { return owner; }
-    function getHeir() public view returns (address) { return mainHeir.ownAddress; }
+    function getHeir() public view returns (address, address, bool, bool) {
+        return (mainHeir.heritableWalletAddress, mainHeir.ownAddress, mainHeir.accepted, mainHeir.pending);
+    }
 
 }

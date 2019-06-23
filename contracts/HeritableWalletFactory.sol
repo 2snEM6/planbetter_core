@@ -16,8 +16,18 @@ contract HeritableWalletFactory {
         _contract = contractByOwner[msg.sender];
     }
 
+    function isContractAlive(address contractAddress) private returns (bool) {
+        uint size;
+        assembly {
+            size := extcodesize(contractAddress)
+        }
+        return size > 0;
+    }
+
     function create(uint periodInDays) public returns (address payable wallet) {
-        if (contractByOwner[msg.sender] != address(0)) revert();
+        if (contractByOwner[msg.sender] != address(0)) {
+            if (isContractAlive(contractByOwner[msg.sender])) revert();
+        }
         wallet = address(new HeritableWallet(msg.sender, periodInDays));
         contractByOwner[msg.sender] = wallet;
         emit WalletCreated(wallet, msg.sender);

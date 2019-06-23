@@ -18,6 +18,9 @@ contract HeritableWallet {
     uint public checkInPeriod;
 
     event HeritageProposal(address heritableWalletAddress, address walletOwner, address walletProposedHeritage);
+    event HeritageAccepted(address heritableWalletAddress, address walletOwner, address walletHeir);
+    event HeritageDeclined(address heritableWalletAddress, address walletOwner, address walletHeir);
+    event WalletDestroyed(address heritableWalletAddress);
 
     struct Heir {
         address payable heritableWalletAddress;
@@ -57,18 +60,21 @@ contract HeritableWallet {
     }
 
     /* called by owner periodically to prove he is alive */
-    function checkIn() public onlyOwner {}
+    function checkIn() public onlyOwner {
+        lastCheckInTime = now;
+    }
 
     function getLastCheckIn() public view returns (uint) {
         return lastCheckInTime;
     }
 
+    function getRemainingTime() public view returns (uint) {
+        return checkInPeriod - (now - lastCheckInTime);
+    }
+
     function isLocked() public view returns (bool) {
         return now <= lastCheckInTime + checkInPeriod;
     }
-
-    event HeritageAccepted(address heritableWalletAddress, address walletOwner, address walletHeir);
-    event HeritageDeclined(address heritableWalletAddress, address walletOwner, address walletHeir);
 
     function acceptHeritage() public onlyOwner {
         if (!mainHeir.pending) revert();
@@ -105,6 +111,10 @@ contract HeritableWallet {
         checkInPeriod = periodInDays * 1 days;
     }
 
+    function getCheckInPeriod() public view returns (uint) {
+        return checkInPeriod;
+    }
+
     /* called by owner to reset the heir */
     function resetHeir() public onlyOwner {
         mainHeir = Heir(address(this), address(0), false, false);
@@ -128,8 +138,10 @@ contract HeritableWallet {
     function destroy() public onlyOwner {
         if (address(this).balance > 0) {
             if (!msg.sender.send(address(this).balance)) revert();
+            emit WalletDestroyed(address(this));
             selfdestruct(owner);
         } else {
+            emit WalletDestroyed(address(this));
             selfdestruct(owner);
         }
     }

@@ -16,7 +16,7 @@ contract HeritableWalletFactory {
         _contract = contractByOwner[msg.sender];
     }
 
-    function isContractAlive(address contractAddress) private returns (bool) {
+    function isContractAlive(address contractAddress) private view returns (bool) {
         uint size;
         assembly {
             size := extcodesize(contractAddress)

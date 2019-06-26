@@ -46,7 +46,7 @@ contract HeritableWallet {
     function() external payable {}
 
     modifier onlyOwner() {
-        if (msg.sender != owner && msg.sender != HeritableWallet(owner).getOwner()) revert();
+        if (msg.sender != owner) revert();
         lastCheckInTime = now;
         _; // function body
     }
@@ -147,10 +147,4 @@ contract HeritableWallet {
             selfdestruct(owner);
         }
     }
-
-    function getOwner() public view returns (address) { return owner; }
-    function getHeir() public view returns (address, address, bool, bool) {
-        return (mainHeir.heritableWalletAddress, mainHeir.ownAddress, mainHeir.accepted, mainHeir.pending);
-    }
-
 }

@@ -13,6 +13,7 @@
   "author": "Daniel Limia & Diego García",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^8.0.0",
     "truffle-hdwallet-provider": "1.0.10"
   },
   "devDependencies": {

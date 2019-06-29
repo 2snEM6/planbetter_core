@@ -31,14 +31,14 @@ contract HeritableWallet {
     }
 
     /* constructor */
-    constructor(address payable walletOwner, uint periodInDays) public {
+    constructor(address payable walletOwner, uint periodInMinutes) public {
         factory = HeritableWalletFactory(msg.sender); // asume the creator is always the factory
 
         mainHeir = Heir(address(this), address(0), false, false); // First initial intended beneficiary
         //mainBeneficiary = walletBeneficiary;// First initial intended beneficiary
         owner = walletOwner; // who currently controls the wallet
 
-        checkInPeriod = periodInDays * 1 days;
+        checkInPeriod = periodInMinutes * 1 minutes;
         lastCheckInTime = now;
     }
 
@@ -108,9 +108,14 @@ contract HeritableWallet {
         }
     }
 
+    function withdraw(uint amount) public onlyOwner {
+        require(amount < address(this).balance);
+        owner.transfer(amount);
+    }
+
     /* called by owner to change check in period */
-    function setCheckInPeriod(uint periodInDays) public onlyOwner {
-        checkInPeriod = periodInDays * 1 days;
+    function setCheckInPeriod(uint periodInMinutes) public onlyOwner {
+        checkInPeriod = periodInMinutes * 1 minutes;
     }
 
     function getCheckInPeriod() public view returns (uint) {
@@ -138,13 +143,7 @@ contract HeritableWallet {
 
     /* called by owner to terminate this contract after sending its funds back to the owner */
     function destroy() public onlyOwner {
-        if (address(this).balance > 0) {
-            if (!msg.sender.send(address(this).balance)) revert();
-            emit WalletDestroyed(address(this));
-            selfdestruct(owner);
-        } else {
-            emit WalletDestroyed(address(this));
-            selfdestruct(owner);
-        }
+        emit WalletDestroyed(address(this));
+        selfdestruct(owner);
     }
 }

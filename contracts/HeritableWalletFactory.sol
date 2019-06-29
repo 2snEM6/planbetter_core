@@ -16,7 +16,7 @@ contract HeritableWalletFactory {
         _contract = contractByOwner[msg.sender];
     }
 
-    function isContractAlive(address contractAddress) private view returns (bool) {
+    function isContractAlive(address contractAddress) public view returns (bool) {
         uint size;
         assembly {
             size := extcodesize(contractAddress)
@@ -24,11 +24,11 @@ contract HeritableWalletFactory {
         return size > 0;
     }
 
-    function create(uint periodInDays) public returns (address payable wallet) {
+    function create(uint periodInMinutes) public returns (address payable wallet) {
         if (contractByOwner[msg.sender] != address(0)) {
             if (isContractAlive(contractByOwner[msg.sender])) revert();
         }
-        wallet = address(new HeritableWallet(msg.sender, periodInDays));
+        wallet = address(new HeritableWallet(msg.sender, periodInMinutes));
         contractByOwner[msg.sender] = wallet;
         emit WalletCreated(wallet, msg.sender);
     }

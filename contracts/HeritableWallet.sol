@@ -52,7 +52,7 @@ contract HeritableWallet {
     }
 
     modifier onlyHeir() {
-        if (mainHeir.ownAddress == msg.sender) revert();
+        if (mainHeir.ownAddress != msg.sender) revert();
         _; // function body
     }
 
